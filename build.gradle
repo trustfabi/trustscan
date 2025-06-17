@@ -1,0 +1,21 @@
+plugins {
+    id 'application'
+    id 'java'
+}
+
+group = 'com.trustfabi'
+version = '1.0.0'
+
+repositories {
+    mavenCentral()
+}
+
+application {
+    mainClass = 'com.trustfabi.TrustScanCLI'
+}
+
+
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+    options.release = 17
+}
