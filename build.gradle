@@ -3,15 +3,23 @@ plugins {
     id 'java'
 }
 
-group = 'com.trustfabi'
-version = '1.0.0'
+jar {
+    archiveBaseName.set('trustscan')
+    archiveVersion.set('')
+    manifest {
+        attributes(
+                'Main-Class': 'TrustScanCLI'
+        )
+    }
+}
+
 
 repositories {
     mavenCentral()
 }
 
 application {
-    mainClass = 'com.trustfabi.TrustScanCLI'
+    mainClass = 'TrustScanCLI'
 }
 
 
