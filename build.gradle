@@ -13,7 +13,6 @@ jar {
     }
 }
 
-
 repositories {
     mavenCentral()
 }
