@@ -23,21 +23,16 @@ git clone https://github.com/yourusername/trustscan.git
 
 cd trustscan
 
-./gradlew build
+./gradlew clean build --no-daemon --refresh-dependencies
 
 ./trustscan.sh install
 
 Now you can run TrustScan globally from anywhere:
 
 trustscan <target-ip> --start <port> --end <port>
+
 Example:
+
 trustscan 192.168.1.1 --start 1 --end 1024
 
-🧰 Requirements
-
-Java 17 or higher
-
-Unix-like system (Linux/macOS) for installer script (trustscan.sh)
-
-Gradle (or use included wrapper ./gradlew)
 
