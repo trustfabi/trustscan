@@ -2,11 +2,12 @@ import java.io.*;
 import java.net.*;
 import java.nio.file.*;
 import java.util.*;
+import java.util.concurrent.*;
 
 public class TrustScanCLI {
 
     private static final int TIMEOUT = 200;
-    private static final String VERSION = "1.0.0";
+    private static final String VERSION = "1.1.0";
 
     public static void main(String[] args) {
         if (args.length == 0 || contains(args, "--help")) {
@@ -19,17 +20,24 @@ public class TrustScanCLI {
             return;
         }
 
-        String host = null;
+        String host;
         int startPort = 1;
         int endPort = 1024;
         boolean grabBanner = contains(args, "--banner");
-        boolean stealth = contains(args, "--stealth");
         String outputFile = getArgValue(args, "--output");
         boolean jsonOutput = contains(args, "--json");
 
+        int aggression = 1; // Default
+        String aggressionStr = getArgValue(args, "--aggression");
+        if (aggressionStr != null) {
+            try {
+                aggression = Math.max(0, Math.min(4, Integer.parseInt(aggressionStr)));
+            } catch (NumberFormatException ignored) {}
+        }
+
         List<String> ipRange = getArgValues(args, "--range");
         if (ipRange != null && ipRange.size() == 2) {
-            scanIPRange(ipRange.get(0), ipRange.get(1), startPort, endPort, grabBanner, stealth, outputFile, jsonOutput);
+            scanIPRange(ipRange.get(0), ipRange.get(1), startPort, endPort, grabBanner, outputFile, jsonOutput, aggression);
             return;
         }
 
@@ -41,25 +49,35 @@ public class TrustScanCLI {
         showBanner();
         System.out.printf("\u001B[36m📡 Scanning %s from port %d to %d...\n\u001B[0m\n", host, startPort, endPort);
 
-        List<String> results = new ArrayList<>();
+        List<String> results = Collections.synchronizedList(new ArrayList<>());
 
-        for (int port = startPort; port <= endPort; port++) {
-            String result = scanPort(host, port, grabBanner);
-            if (result != null) {
-                results.add(result);
+        if (aggression >= 3) {
+            int threads = (aggression == 3) ? 10 : 50;
+            ExecutorService executor = Executors.newFixedThreadPool(threads);
+            for (int port = startPort; port <= endPort; port++) {
+                final int p = port;
+                executor.submit(() -> {
+                    String result = scanPort(host, p, grabBanner);
+                    if (result != null) results.add(result);
+                });
             }
-            if (stealth) {
-                try {
-                    Thread.sleep(new Random().nextInt(300));
-                } catch (InterruptedException ignored) {}
+            executor.shutdown();
+            try {
+                executor.awaitTermination(1, TimeUnit.HOURS);
+            } catch (InterruptedException ignored) {}
+        } else {
+            for (int port = startPort; port <= endPort; port++) {
+                String result = scanPort(host, port, grabBanner);
+                if (result != null) results.add(result);
+                delayBasedOnAggression(aggression);
             }
         }
 
         outputResults(results, outputFile, jsonOutput);
     }
 
-    private static void scanIPRange(String startIP, String endIP, int startPort, int endPort, boolean banner, boolean stealth, String outputFile, boolean jsonOutput) {
-        List<String> results = new ArrayList<>();
+    private static void scanIPRange(String startIP, String endIP, int startPort, int endPort, boolean banner, String outputFile, boolean jsonOutput, int aggression) {
+        List<String> results = Collections.synchronizedList(new ArrayList<>());
         String[] start = startIP.split("\\.");
         String[] end = endIP.split("\\.");
 
@@ -72,13 +90,27 @@ public class TrustScanCLI {
         for (int i = s; i <= e; i++) {
             String host = prefix + i;
             System.out.printf("\u001B[34m📍 Scanning %s...\u001B[0m\n", host);
-            for (int port = startPort; port <= endPort; port++) {
-                String result = scanPort(host, port, banner);
-                if (result != null) results.add(result);
-                if (stealth) {
-                    try {
-                        Thread.sleep(new Random().nextInt(300));
-                    } catch (InterruptedException ignored) {}
+
+            if (aggression >= 3) {
+                int threads = (aggression == 3) ? 10 : 50;
+                ExecutorService executor = Executors.newFixedThreadPool(threads);
+                for (int port = startPort; port <= endPort; port++) {
+                    final int p = port;
+                    final String h = host;
+                    executor.submit(() -> {
+                        String result = scanPort(h, p, banner);
+                        if (result != null) results.add(result);
+                    });
+                }
+                executor.shutdown();
+                try {
+                    executor.awaitTermination(1, TimeUnit.HOURS);
+                } catch (InterruptedException ignored) {}
+            } else {
+                for (int port = startPort; port <= endPort; port++) {
+                    String result = scanPort(host, port, banner);
+                    if (result != null) results.add(result);
+                    delayBasedOnAggression(aggression);
                 }
             }
         }
@@ -137,10 +169,10 @@ public class TrustScanCLI {
                 } else {
                     Files.write(Path.of(outputFile), results);
                 }
-                System.out.println("\u001B[33m📁 Ergebnisse gespeichert in " + outputFile + "\u001B[0m");
+                System.out.println("\u001B[33m📁 Saved results to " + outputFile + "\u001B[0m");
             }
         } catch (IOException e) {
-            System.err.println("Fehler beim Schreiben in Datei: " + e.getMessage());
+            System.err.println("Error writing to file: " + e.getMessage());
         }
     }
 
@@ -162,6 +194,21 @@ public class TrustScanCLI {
         return null;
     }
 
+    private static void delayBasedOnAggression(int level) {
+        int delay;
+        switch (level) {
+            case 0 -> delay = 500;
+            case 1 -> delay = 200;
+            case 2 -> delay = 100;
+            default -> delay = 0;
+        }
+        if (delay > 0) {
+            try {
+                Thread.sleep(delay);
+            } catch (InterruptedException ignored) {}
+        }
+    }
+
     private static void showBanner() {
         String banner = """
 \u001B[35m
@@ -180,17 +227,17 @@ public class TrustScanCLI {
     private static void showHelp() {
         showBanner();
         System.out.println("📖 USAGE:");
-        System.out.println("  trustscan <host> [--start N] [--end M] [--banner] [--output file] [--json] [--stealth]");
+        System.out.println("  trustscan <host> [--start N] [--end M] [--banner] [--output file] [--json] [--aggression N]");
         System.out.println("  trustscan --range 192.168.0.1-192.168.0.10 [--start N] [--end M]");
         System.out.println("\n📌 OPTIONS:");
-        System.out.println("  --start       Startport (default: 1)");
-        System.out.println("  --end         Endport (default: 1024)");
-        System.out.println("  --banner      Versucht Banner-Grabbing (z. B. HTTP Header)");
-        System.out.println("  --output      Speichert Ergebnis in Datei");
-        System.out.println("  --json        Ausgabe im JSON-Format");
-        System.out.println("  --stealth     Verzögert zufällig die Scans für Tarnung");
-        System.out.println("  --range       IP-Bereich, z. B. 192.168.1.1-192.168.1.10");
-        System.out.println("  --version     Zeigt Versionsinfo");
-        System.out.println("  --help        Zeigt diese Hilfe");
+        System.out.println("  --start       Start port (default: 1)");
+        System.out.println("  --end         End port (default: 1024)");
+        System.out.println("  --banner      Try to grab banners (e.g. HTTP headers)");
+        System.out.println("  --output      Save result to file");
+        System.out.println("  --json        Output in JSON format");
+        System.out.println("  --range       IP range e.g. 192.168.1.1-192.168.1.10");
+        System.out.println("  --aggression  Scan speed: 0 (slow) to 4 (fastest), default = 1");
+        System.out.println("  --version     Show version info");
+        System.out.println("  --help        Show this help");
     }
 }
