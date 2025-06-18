@@ -19,3 +19,7 @@ repositories {
 application {
     mainClass = 'TrustScanCLI'
 }
+
+tasks.withType(JavaCompile).configureEach {
+    javaCompiler.set(null)
+}
