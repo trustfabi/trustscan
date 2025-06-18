@@ -1,4 +1,4 @@
-TrustScan – Lightweight Java Port Scanner
+#TrustScan# – Lightweight Java Port Scanner
 TrustScan is a fast and lightweight command-line port scanner written in Java. It allows users to scan target hosts for open TCP ports within a defined range. Designed to be simple to use, easy to install, and cross-platform compatible, TrustScan is ideal for developers, sysadmins, or cybersecurity enthusiasts who need a no-nonsense port scanning utility.
 
 🔍 Features
