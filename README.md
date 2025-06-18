@@ -15,6 +15,7 @@ TrustScan is a fast and lightweight command-line port scanner written in Java. I
 🛠️ One-command setup with symlink installer (trustscan command globally available)
 
 📦 Installation
+
 Clone the repository:
 git clone https://github.com/yourusername/trustscan.git
 cd trustscan
