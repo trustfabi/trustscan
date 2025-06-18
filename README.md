@@ -30,7 +30,9 @@ cd trustscan
 Now you can run TrustScan globally from anywhere:
 
 trustscan <target-ip> --start <port> --end <port>
+
 Example:
+
 trustscan 192.168.1.1 --start 1 --end 1024
 
 
