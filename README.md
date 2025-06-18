@@ -19,9 +19,13 @@ TrustScan is a fast and lightweight command-line port scanner written in Java. I
 Clone the repository:
 
 git clone https://github.com/yourusername/trustscan.git
+
 cd trustscan
+
 ./gradlew build
+
 ./trustscan.sh install
+
 Now you can run TrustScan globally from anywhere:
 
 trustscan <target-ip> --start <port> --end <port>
