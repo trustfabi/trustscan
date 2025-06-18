@@ -33,6 +33,7 @@ Example:
 trustscan 192.168.1.1 --start 1 --end 1024
 
 🧰 Requirements
+
 Java 17 or higher
 
 Unix-like system (Linux/macOS) for installer script (trustscan.sh)
